@@ -1,0 +1,2 @@
+ATTR{size}=="32768", SYMLINK+="robot_lidar"
+ATTR{size}=="49152", SYMLINK+="robot_imu"
