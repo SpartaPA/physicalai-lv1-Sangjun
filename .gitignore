@@ -24,8 +24,7 @@ log/
 *.so
 
 # cpp_basic에서 생성되는 실행파일
-cpp_basic/robot
-cpp_basic/stop_distance
+lv1_module2_sangjun/cpp_basic/stop_distance
 
 # ==========================================
 # CMake 생성 파일
