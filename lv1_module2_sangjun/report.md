@@ -509,3 +509,16 @@ pa31@pa31-Legion-Pro-5-16IAX10:~/physicalai-lv1-Sangjun/lv1_module2_sangjun/ros2
 
 ## 4. rclcpp 노드 작성 — C++ 발행자와 구독자
 
+### 01. colcon build 성공 출력
+```bash
+pa31@pa31-Legion-Pro-5-16IAX10:~/physicalai-lv1-Sangjun/lv1_module2_sangjun/ros2_ws/src$ colcon build --packages-select turtle_cpp
+Starting >>> turtle_cpp
+Finished <<< turtle_cpp [8.89s]                     
+
+Summary: 1 package finished [9.17s]
+```
+
+### 02. rclpy 발행에서 rclcpp 구독으로 이어진 로그
+
+
+### 03. rclpy와 rclcpp 대응 관계표 — 노드 생성 / 타이머 / 콜백 / 종료 (4행)
