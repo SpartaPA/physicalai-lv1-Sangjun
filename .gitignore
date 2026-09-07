@@ -24,7 +24,7 @@ log/
 *.so
 
 # cpp_basic에서 생성되는 실행파일
-./stop_distance
+stop_distance
 
 # ==========================================
 # CMake 생성 파일
