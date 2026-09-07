@@ -57,14 +57,14 @@ int main() {
 
     std::cout << "Program started!" << std::endl;
 
-    {
-        Lidar stackLidar;
-        auto heapLidar = std::make_unique<Lidar>();
+    // {
+    //     Lidar stackLidar;
+    //     auto heapLidar = std::make_unique<Lidar>();
 
-        std::cout << "Inside scope" << std::endl;
-    }
+    //     std::cout << "Inside scope" << std::endl;
+    // }
 
-    std::cout << "After scope" << std::endl;
+    // std::cout << "After scope" << std::endl;
 
     std::vector<std::unique_ptr<Sensor>> sensors;
 

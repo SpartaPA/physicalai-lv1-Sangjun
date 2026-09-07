@@ -222,8 +222,10 @@ Program started!
 > `std::vector<std::unique_ptr<Sensor>>` 에 Lidar와 Imu를 저장하고 virtual/override 기반의 다형성 루프를 구성하여 각 센서의 read()가 정상적으로 호출되는 것을 확인하였다.
 
 ### 02. 스택 객체와 힙 객체의 소멸 시점
+
+기존 코드를 아래와 같이 수정하였다.
 ```cpp
-/Sensor
+//Sensor
 public:
         virtual ~Sensor(){
             std::cout << "Sensor destructor called" << std::endl;
@@ -266,20 +268,25 @@ Imu() {
         }
 ```
 
-> 생성과 소멸 시점을 확인하기 위해 Sensor, Lidar, Imu의 생성자와 소멸자에 출력문을 추가한다.
+> 생성과 소멸 시점을 확인하기 위해 `Sensor`,` Lidar`, `Imu`의 생성자와 소멸자에 출력문을 추가한다.
 
 다시 빌드하여 실행해보면 아래와 같은 출력이 나온다 
 ```bash
-pa31@pa31-Legion-Pro-5-16IAX10:~/KantPA/lv1_module2_sangjun/cpp_basic/sensors$ g++ -Wall -std=c++17 sensor.cpp -o sensor
-pa31@pa31-Legion-Pro-5-16IAX10:~/KantPA/lv1_module2_sangjun/cpp_basic/sensors$ ./sensor 
+pa31@pa31-Legion-Pro-5-16IAX10:~/physicalai-lv1-Sangjun/lv1_module2_sangjun/cpp_basic/sensors$ ./sensor 
 Program started!
+Lidar constructor called
+Lidar connected: true
+Imu constructor called
+Imu connected: true
 1 2 3 
 0.1 0.2 0.3 
+Lidar destructor called
 Sensor destructor called
+Imu destructor called
 Sensor destructor called
 ```
 
-> `sensors.push_back(std::make_unique<Lidar>());` 와 `sensors.push_back(std::make_unique<Imu>());` 이렇게 두가지의 객체를 만들었기 때문에 `Sensor destructor called`가 두 번 출력이 된다.
+> `sensors`벡터에 `Lidar`와 `Imu` 객체가 각각 하나씩 저장되어 있으며, 프로그램이 종료될 때 두 객체가 소멸한다. 이때 각 객체의 소멸 과정에서 파생 클래스의 소멸자가 먼저 호출되고, 이후 부모 클래스인 `Sensor`의 소멸자가 호출된다. 따라서 `Sensor destructor called`가 두 번 출력된다.
 
 ### 03. 가상 소멸자를 뺏을 떄의 차이: 
 
