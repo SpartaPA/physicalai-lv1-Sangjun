@@ -1,6 +1,10 @@
 #include <vector>
 #include <iostream>
 #include <memory>
+#include <unordered_map>
+#include <algorithm>
+#include <cmath>
+#include <string>
 
 class Sensor {
     public:
@@ -57,14 +61,14 @@ int main() {
 
     std::cout << "Program started!" << std::endl;
 
-    // {
-    //     Lidar stackLidar;
-    //     auto heapLidar = std::make_unique<Lidar>();
+    {
+        Lidar stackLidar;
+        auto heapLidar = std::make_unique<Lidar>();
 
-    //     std::cout << "Inside scope" << std::endl;
-    // }
+        std::cout << "Inside scope" << std::endl;
+    }
 
-    // std::cout << "After scope" << std::endl;
+    std::cout << "After scope" << std::endl;
 
     std::vector<std::unique_ptr<Sensor>> sensors;
 
@@ -78,6 +82,33 @@ int main() {
         }
         std::cout << std::endl;
     }
+
+    std::unordered_map<std::string, std::pair<double, double>> latest;
+
+    latest["Lidar"] = {1.0, 2.0};
+    latest["Imu"] = {0.1, 0.3};
+
+    // 측정 로그
+    std::vector<std::pair<double, double>> logs = {
+        {0.1, 0.2},
+        {0.2, 0.3},
+        {0.5, 0.5},
+        {0.3, 0.2}
+    };
+    // 목표점
+    std::pair<double, double> target = {0.0, 0.0};
+
+    int count = std::count_if(logs.begin(), logs.end(),
+    [target](const std::pair<double, double>& point) {
+        double dx = point.first - target.first;
+        double dy = point.second - target.second;
+
+        double distance = std::sqrt(dx * dx + dy * dy);
+
+        return distance <= 0.35;
+    });
+
+    std::cout << "0.35 이내 기록 개수: " << count << std::endl;
 
     return 0;
 }

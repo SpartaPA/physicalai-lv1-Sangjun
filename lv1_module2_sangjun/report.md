@@ -288,10 +288,77 @@ Sensor destructor called
 
 > `sensors`벡터에 `Lidar`와 `Imu` 객체가 각각 하나씩 저장되어 있으며, 프로그램이 종료될 때 두 객체가 소멸한다. 이때 각 객체의 소멸 과정에서 파생 클래스의 소멸자가 먼저 호출되고, 이후 부모 클래스인 `Sensor`의 소멸자가 호출된다. 따라서 `Sensor destructor called`가 두 번 출력된다.
 
-### 03. 가상 소멸자를 뺏을 떄의 차이: 
+### 03. 가상 소멸자를 뺏을 떄의 차이: Lidar와 Imu의 소멸자가 호출되지 않는다
 
-### 04. count_if 결과: 0.5 이내 기록 ___ 개
+```cpp
 
+int main() {
+
+    std::cout << "Program started!" << std::endl;
+
+    {
+        Lidar stackLidar;
+        auto heapLidar = std::make_unique<Lidar>();
+
+        std::cout << "Inside scope" << std::endl;
+    }   //스택/힙 객체의 소멸 시점 확인을 위해 추가
+
+    std::cout << "After scope" << std::endl;    // [추가] 스코프 종료 이후 확인
+
+    std::vector<std::unique_ptr<Sensor>> sensors;
+
+    sensors.push_back(std::make_unique<Lidar>());
+    sensors.push_back(std::make_unique<Imu>());
+    for (const std::unique_ptr<Sensor>& s : sensors) {
+        auto data = s->read();   
+        for (double value : data) {
+            std::cout << value << " ";
+        }
+        std::cout << std::endl;
+    }
+
+    return 0;
+}
+```
+> 스택 객체와 힙 객체의 생성 및 소멸 시점을 단계별로 확인하기 위해 main()을 수정하였다.<br>
+> 별도의 스코프를 추가하여 Lidar 객체를 스택 객체와 힙 객체로 각각 생성하였다.
+> 또한 Inside scope와 After scope를 출력하여 스코프 내부와 외부를 구분하고, 스코프가 종료되는 시점에 두 객체의 소멸자가 호출되는 과정을 확인할 수 있도록 하였다.
+
+### 04. count_if 결과: 0.35 이내 기록 1 개
+
+main 함수 수정
+```cpp
+
+   std::unordered_map<std::string, std::pair<double, double>> latest;
+
+    latest["Lidar"] = {1.0, 2.0};
+    latest["Imu"] = {0.1, 0.3};
+
+    // 측정 로그
+    std::vector<std::pair<double, double>> logs = {
+        {0.1, 0.2},
+        {0.2, 0.3},
+        {0.5, 0.5},
+        {0.3, 0.2}
+    };
+    // 목표점
+    std::pair<double, double> target = {0.0, 0.0};
+
+    int count = std::count_if(logs.begin(), logs.end(),
+    [target](const std::pair<double, double>& point) {
+        double dx = point.first - target.first;
+        double dy = point.second - target.second;
+
+        double distance = std::sqrt(dx * dx + dy * dy);
+
+        return distance <= 0.35;
+    });
+
+    std::cout << "0.35 이내 기록 개수: " << count << std::endl;
+
+    return 0;
+```
+> `std::count_if`를 사용하여 목표점 `(0, 0)`으로부터 거리가 `0.35` 이하인 측정 로그의 개수를 계산한 결과, **1개**로 확인되었다.
 ### 05. 누수 검출 결과 → 수정 후 결과 (검출 도구 출력 비교)
 
 ## 3. rclpy 노드 작성 — 거북이 상태 발행자와 구독자
