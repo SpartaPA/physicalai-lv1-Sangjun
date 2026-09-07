@@ -222,17 +222,51 @@ Program started!
 > `std::vector<std::unique_ptr<Sensor>>` 에 Lidar와 Imu를 저장하고 virtual/override 기반의 다형성 루프를 구성하여 각 센서의 read()가 정상적으로 호출되는 것을 확인하였다.
 
 ### 02. 스택 객체와 힙 객체의 소멸 시점
-현재 코드의 아래 부분을 
 ```cpp
-virtual ~Sensor() = default;
+/Sensor
+public:
+        virtual ~Sensor(){
+            std::cout << "Sensor destructor called" << std::endl;
+        }
+        virtual std::vector<double> read() = 0;
+
 ```
 
-아래와 같이 수정한다
 ```cpp
-virtual ~Sensor(){
-    std::cout << "Sensor destructor called" << std::endl;
-}
+ Lidar() {
+            connected = true; // Simulate that the sensor is connected
+            std::cout << "Lidar constructor called" << std::endl;
+            std::cout << "Lidar connected: " << std::boolalpha << connected << std::endl;
+        }
+
+        ~Lidar() {
+            std::cout << "Lidar destructor called" << std::endl;
+        }
+
+        std::vector<double> read() override {
+            // Simulate reading data from the Lidar sensor
+            return {1.0, 2.0, 3.0}; // Example data
+        }
 ```
+
+```cpp
+Imu() {
+            connected = true; // Simulate that the sensor is connected
+            std::cout << "Imu constructor called" << std::endl;
+            std::cout << "Imu connected: " << std::boolalpha << connected << std::endl;
+        }
+
+        ~Imu() {
+            std::cout << "Imu destructor called" << std::endl;
+        }
+
+        std::vector<double> read() override {
+            // Simulate reading data from the IMU sensor
+            return {0.1, 0.2, 0.3}; // Example data
+        }
+```
+
+> 생성과 소멸 시점을 확인하기 위해 Sensor, Lidar, Imu의 생성자와 소멸자에 출력문을 추가한다.
 
 다시 빌드하여 실행해보면 아래와 같은 출력이 나온다 
 ```bash
