@@ -519,6 +519,36 @@ Summary: 1 package finished [9.17s]
 ```
 
 ### 02. rclpy 발행에서 rclcpp 구독으로 이어진 로그
+```bash
+pa31@pa31-Legion-Pro-5-16IAX10:~/physicalai-lv1-Sangjun/lv1_module2_sangjun/ros2_ws/src$ ros2 run turtle_py distance_node
+[INFO] [1788772095.538767944] [distance_node]: Distance node started
+```
+```bash
+pa31@pa31-Legion-Pro-5-16IAX10:~/physicalai-lv1-Sangjun/lv1_module2_sangjun/ros2_ws/src$ ros2 run turtle_cpp distance_subscriber
+[INFO] [1788772101.995546740] [distance_subscriber]: Distance subscriber started
+[INFO] [1788772102.025801555] [distance_subscriber]: Distance: 7.84 m
+[INFO] [1788772102.126375086] [distance_subscriber]: Distance: 7.84 m
+[INFO] [1788772102.226115539] [distance_subscriber]: Distance: 7.84 m
+[INFO] [1788772102.325901249] [distance_subscriber]: Distance: 7.84 m
+[INFO] [1788772102.425971471] [distance_subscriber]: Distance: 7.84 m
+[INFO] [1788772102.529105352] [distance_subscriber]: Distance: 7.84 m
+.
+.
+.
+[INFO] [1788772107.725903241] [distance_subscriber]: Distance: 7.84 m
+^C[INFO] [1788772107.783616976] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+```
+> `Python` 기반 `rclpy`의 `distance_node`가 `/turtle_distance` 토픽을 발행하고, `C++` 기반 `rclcpp`의 `distance_subscriber`가 해당 토픽을 구독하였다.<br>
+> C++ Subscriber에서 `/turtle_distance`로 전달된 거리 값이 약 0.1초 간격으로 반복 수신되는 것을 확인하였다.
 
 
 ### 03. rclpy와 rclcpp 대응 관계표 — 노드 생성 / 타이머 / 콜백 / 종료 (4행)
+
+| 기능 | rclpy (Python) | rclcpp (C++) |
+|---|---|---|
+| 노드 생성 | `Node("node_name")` | `Node("node_name")` |
+| 타이머 | `create_timer()` | `create_wall_timer()` |
+| 콜백 | Python 함수 | C++ 람다/함수 |
+| 종료 | `rclpy.shutdown()` | `rclcpp::shutdown()` |
+
+> 두 클라이언트 라이브러리는 동일한 ROS 2 통신 구조를 사용하며, 노드 생성, 타이머, 콜백, 종료 방식에서 Python과 C++ 문법에 따른 차이가 있음을 확인하였다.
