@@ -394,6 +394,118 @@ SUMMARY: AddressSanitizer: 4000000 byte(s) leaked in 1000 allocation(s).
 > `make_unique`로 수정한 후에는 누수 오류가 발생하지 않았다.
 
 ## 3. rclpy 노드 작성 — 거북이 상태 발행자와 구독자
+### 01, `/turtle1/pose` 필드 구성: `x`, `y`, `theta`, `linear_velocity`, `angular_velocity`
+- x, y: 거북이의 현재 위치
+- theta: 현재 방향
+- linear_velocity: 선속도
+- angular_velocity: 각속도
+
+### 02. ros2 topic hz /turtle_distance 출력: 평균 10.0 Hz
+```bash
+pa31@pa31-Legion-Pro-5-16IAX10:~/physicalai-lv1-Sangjun$ ros2 topic hz /turtle_distance
+WARNING: topic [/turtle_distance] does not appear to be published yet
+average rate: 9.992
+        min: 0.095s max: 0.105s std dev: 0.00256s window: 12
+average rate: 10.013
+        min: 0.095s max: 0.105s std dev: 0.00232s window: 23
+average rate: 10.000
+        min: 0.095s max: 0.105s std dev: 0.00225s window: 34
+average rate: 10.008
+        min: 0.095s max: 0.105s std dev: 0.00226s window: 45
+average rate: 10.006
+        min: 0.095s max: 0.105s std dev: 0.00223s window: 55
+average rate: 10.001
+        min: 0.095s max: 0.105s std dev: 0.00213s window: 65
+average rate: 10.005
+        min: 0.095s max: 0.105s std dev: 0.00206s window: 76
+average rate: 10.004
+        min: 0.095s max: 0.105s std dev: 0.00210s window: 86
+average rate: 10.003
+        min: 0.095s max: 0.105s std dev: 0.00207s window: 96
+average rate: 10.003
+        min: 0.095s max: 0.105s std dev: 0.00203s window: 107
+.
+.
+.
+```
+> 거리 데이터가 약 0.1초 간격으로 발행되어 목표 주기인 10 Hz를 만족한다.
+
+### 03. 구독자 경고 로그 (터미널 출력)
+```bash
+pa31@pa31-Legion-Pro-5-16IAX10:~/physicalai-lv1-Sangjun$ ros2 run turtle_py warning_node 
+[INFO] [1788763844.862708418] [warning_node]: Warning node started
+[WARN] [1788763106.815071061] [warning_node]: Turtle is far from origin: 7.90 m
+[WARN] [1788763106.915113820] [warning_node]: Turtle is far from origin: 7.90 m
+[WARN] [1788763107.014938563] [warning_node]: Turtle is far from origin: 7.90 m
+[WARN] [1788763107.115187309] [warning_node]: Turtle is far from origin: 7.90 m
+[WARN] [1788763107.215148127] [warning_node]: Turtle is far from origin: 7.90 m
+[WARN] [1788763107.315268950] [warning_node]: Turtle is far from origin: 7.90 m
+.
+.
+.
+
+```
+> `/turtle_distance`의 거리가 **2.5 m를 초과**하면 경고 로그가 출력된다.
+
+### 04. 구독자 2개 동시 수신 확인 (양쪽 로그)
+```bash
+data: 10.991052627563477
+---
+data: 10.895676612854004
+---
+data: 10.800312995910645
+---
+data: 10.704959869384766
+---
+data: 10.593729019165039
+---
+data: 10.498401641845703
+---
+data: 10.40308666229248
+---
+data: 10.291902542114258
+---
+data: 10.196615219116211
+---
+data: 10.101341247558594
+---
+data: 10.006081581115723
+---
+^Cpa31@pa31-Legion-Pro-5-16IAX10:~/physicalai-lv1-Sangjun/lv1_module2_sangjun/ros2_ws$ 
+```
+```bash 
+[WARN] [1788764127.527629384] [warning_node]: Turtle is far from origin: 10.99 m
+[WARN] [1788764127.623466418] [warning_node]: Turtle is far from origin: 10.90 m
+[WARN] [1788764127.725798383] [warning_node]: Turtle is far from origin: 10.80 m
+[WARN] [1788764127.824229361] [warning_node]: Turtle is far from origin: 10.70 m
+[WARN] [1788764127.923072873] [warning_node]: Turtle is far from origin: 10.59 m
+[WARN] [1788764128.023544231] [warning_node]: Turtle is far from origin: 10.50 m
+[WARN] [1788764128.123122409] [warning_node]: Turtle is far from origin: 10.40 m
+[WARN] [1788764128.223104845] [warning_node]: Turtle is far from origin: 10.29 m
+[WARN] [1788764128.328038390] [warning_node]: Turtle is far from origin: 10.20 m
+[WARN] [1788764128.423517859] [warning_node]: Turtle is far from origin: 10.10 m
+[WARN] [1788764128.523234487] [warning_node]: Turtle is far from origin: 10.01 m
+```
+> `/turtle_distance` 토픽의 데이터를 `warning_node`와 `ros2 topic echo`에서 동시에 수신하였다. 거리 값이 정상적으로 전달되었으며, 임계값 `2.5 m`를 초과하여 `Warning` 로그가 출력되는 것을 확인하였다
+
+### 05. 정사각형 주행 캡처 (turtlesim 화면)
+[스크린샷]()
+
+### 06. 
+```bash
+pa31@pa31-Legion-Pro-5-16IAX10:~/physicalai-lv1-Sangjun/lv1_module2_sangjun/ros2_ws$ ros2 run turtlesim turtlesim_node 
+Warning: Ignoring XDG_SESSION_TYPE=wayland on Gnome. Use QT_QPA_PLATFORM=wayland to run on Wayland anyway.
+[INFO] [1788764401.932492861] [turtlesim]: Starting turtlesim with node name /turtlesim
+[INFO] [1788764401.934926781] [turtlesim]: Spawning turtle [turtle1] at x=[5.544445], y=[5.544445], theta=[0.000000]
+^C[INFO] [1788764475.023066374] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+pa31@pa31-Legion-Pro-5-16IAX10:~/physicalai-lv1-Sangjun/lv1_module2_sangjun/ros2_ws$ 
+```
+
+```bash
+pa31@pa31-Legion-Pro-5-16IAX10:~/physicalai-lv1-Sangjun/lv1_module2_sangjun/ros2_ws$ ros2 run turtle_py square_node
+[INFO] [1788765121.250845733] [square_node]: Square node started
+^Cpa31@pa31-Legion-Pro-5-16IAX10:~/physicalai-lv1-Sangjun/lv1_module2_sangjun/ros2_ws$ 
+```
 
 ## 4. rclcpp 노드 작성 — C++ 발행자와 구독자
 
