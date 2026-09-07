@@ -489,7 +489,7 @@ data: 10.006081581115723
 > `/turtle_distance` 토픽의 데이터를 `warning_node`와 `ros2 topic echo`에서 동시에 수신하였다. 거리 값이 정상적으로 전달되었으며, 임계값 `2.5 m`를 초과하여 `Warning` 로그가 출력되는 것을 확인하였다
 
 ### 05. 정사각형 주행 캡처 (turtlesim 화면)
-[스크린샷]()
+[스크린샷](https://github.com/SpartaPA/physicalai-lv1-Sangjun/blob/main/lv1_module2_sangjun/screenshots/%EC%8A%A4%ED%81%AC%EB%A6%B0%EC%83%B7%202026-09-07%2016-00-28.png)
 
 ### 06. 
 ```bash
