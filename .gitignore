@@ -24,7 +24,9 @@ log/
 *.so
 
 # cpp_basic에서 생성되는 실행파일
+sensor
 stop_distance
+polymorphism
 
 # ==========================================
 # CMake 생성 파일
