@@ -56,6 +56,18 @@ class Imu : public Sensor {
         }
 };
 
+template <typename T>
+T clamp(T value, T min, T max) {
+    if (value < min) {
+        return min;
+    }
+
+    if (value > max) {
+        return max;
+    }
+
+    return value;
+}
 
 int main() {
 
@@ -109,6 +121,22 @@ int main() {
     });
 
     std::cout << "0.35 이내 기록 개수: " << count << std::endl;
+
+    double speed = clamp(120.5, 0.0, 100.0);
+    int pixel = clamp(300, 0, 255);
+
+    std::cout << "clamped speed: " << speed << std::endl;
+    std::cout << "clamped pixel: " << pixel << std::endl;
+
+    // [추가] 메모리 누수 재현
+    // for (int i = 0; i < 1000; ++i) {
+    //     int* data = new int[1000];
+    // }
+
+    // [수정] make_unique를 이용한 메모리 관리
+    for (int i = 0; i < 1000; ++i) {
+        auto data = std::make_unique<int[]>(1000);
+    }
 
     return 0;
 }

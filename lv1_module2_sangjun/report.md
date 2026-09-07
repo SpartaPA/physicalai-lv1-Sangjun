@@ -227,7 +227,7 @@ Program started!
 ```cpp
 //Sensor
 public:
-        virtual ~Sensor(){
+        ~Sensor(){  // delete virtual 
             std::cout << "Sensor destructor called" << std::endl;
         }
         virtual std::vector<double> read() = 0;
@@ -359,8 +359,41 @@ main 함수 수정
     return 0;
 ```
 > `std::count_if`를 사용하여 목표점 `(0, 0)`으로부터 거리가 `0.35` 이하인 측정 로그의 개수를 계산한 결과, **1개**로 확인되었다.
+
 ### 05. 누수 검출 결과 → 수정 후 결과 (검출 도구 출력 비교)
+수정전-`new`로 메모리를 할당 후 `delete`누락
+```cpp
+// 메모리 누수 재현
+    for (int i = 0; i < 1000; ++i) {
+        int* data = new int[1000];
+    }
+```
+```bash
+# `g++ -std=c++17 -fsanitize=address -g sensor.cpp -o sensor` 로 컴파일 후 실행한 출력 중 일부
+
+=================================================================
+==20428==ERROR: LeakSanitizer: detected memory leaks
+
+Direct leak of 4000000 byte(s) in 1000 object(s) allocated from:
+    #0 0x7d4bab2b6357 in operator new[](unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:102
+    #1 0x5aecbae0fb8b in main /home/pa31/physicalai-lv1-Sangjun/lv1_module2_sangjun/cpp_basic/sensors/sensor.cpp:133
+    #2 0x7d4baaa29d8f in __libc_start_call_main ../sysdeps/nptl/libc_start_call_main.h:58
+
+SUMMARY: AddressSanitizer: 4000000 byte(s) leaked in 1000 allocation(s).
+```
+> `new`로 메모리를 할당하고 해제하지 않았을 때 `LeakSanitizer`에서 4,000,000 bytes의 메모리 누수가 검출되었다
+
+수정후-`make_unique` 사용
+```cpp
+// [수정] make_unique를 이용한 메모리 관리
+    for (int i = 0; i < 1000; ++i) {
+        auto data = std::make_unique<int[]>(1000);
+    }
+
+```
+> `make_unique`로 수정한 후에는 누수 오류가 발생하지 않았다.
 
 ## 3. rclpy 노드 작성 — 거북이 상태 발행자와 구독자
 
+## 4. rclcpp 노드 작성 — C++ 발행자와 구독자
 
