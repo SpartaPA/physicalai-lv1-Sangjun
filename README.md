@@ -5,7 +5,7 @@ PA 트랙 과제 제출용
 
 [모듈 ① 과제 REPORT — 배달 로봇 온보딩](https://github.com/SpartaPA/physicalai-lv1-Sangjun/blob/main/lv1_module1_sangjun/report.md)
 
-[모듈 ② 과제 REPORT — turtlesim 기반 C++·Python ROS2 패키지 개발]()
+[모듈 ② 과제 REPORT — turtlesim 기반 C++·Python ROS2 패키지 개발](https://github.com/SpartaPA/physicalai-lv1-Sangjun/blob/main/lv1_module2_sangjun/report.md)
 
 [모듈 ③ 과제 REPORT — 로봇 좌표 변환 수학 라이브러리 구현]()
 
