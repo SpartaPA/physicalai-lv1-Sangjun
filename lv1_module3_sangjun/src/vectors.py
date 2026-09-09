@@ -269,7 +269,8 @@ def row_echelon(A, pivoting: bool = True):
     n_swaps = 0
     row = 0
 
-    eps = 1e-12  # 허용오차
+    scale = max(1.0, np.max(np.abs(U))) if U.size > 0 else 1.0
+    tol = max(m, n) * np.finfo(float).eps * scale
 
     for col in range(n):
         if row >= m:
@@ -279,9 +280,11 @@ def row_echelon(A, pivoting: bool = True):
         pivot_row = row
         if pivoting:
             pivot_row = row + np.argmax(np.abs(U[row:m, col]))
+        else:
+            pivot_row = row
 
         # 피벗이 0이면 이 열은 건너뜀
-        if abs(U[pivot_row, col]) <= eps:
+        if abs(U[pivot_row, col]) <= tol:
             continue
 
         # 행 교환
@@ -293,7 +296,7 @@ def row_echelon(A, pivoting: bool = True):
         for r in range(row + 1, m):
             factor = U[r, col] / U[row, col]
 
-            if abs(factor) <= eps:
+            if abs(factor) <= tol:
                 U[r, col] = 0.0
                 continue
 
@@ -303,7 +306,7 @@ def row_echelon(A, pivoting: bool = True):
         pivot_cols.append(col)
         row += 1
 
-    U[np.abs(U) <= eps] = 0.0  # 작은 값들을 0으로 처리
+    U[np.abs(U) <= tol] = 0.0  # 작은 값들을 0으로 처리
 
     return U, pivot_cols, n_swaps
     # raise NotImplementedError("row_echelon 을 구현하세요")

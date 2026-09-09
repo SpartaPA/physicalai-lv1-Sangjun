@@ -117,7 +117,38 @@ def gram_schmidt(A) -> np.ndarray:
     앞선 열들에 종속인 열이 있으면 ValueError.
     """
     # TODO: 문제 3-2
-    raise NotImplementedError("gram_schmidt 를 구현하세요")
+    A = np.asarray(A, dtype=float)
+
+    if A.ndim != 2:
+        raise ValueError(f"2차원 행렬이 필요합니다: A.ndim={A.ndim}")
+
+    m, n = A.shape
+
+    if n > m:
+        raise ValueError(f"열이 행보다 많으면 안 됩니다: A.shape={A.shape}")
+
+    Q = np.zeros((m, n), dtype=float)
+
+    scale = max(1.0, np.max(np.abs(A))) if A.size > 0 else 1.0
+    tol = max(m, n) * np.finfo(float).eps * scale
+
+    for j in range(n):
+        vj = A[:, j].copy()
+
+        for i in range(j):
+            qi = Q[:, i]
+            proj = np.dot(qi, vj) * qi
+            vj -= proj
+
+        norm_vj = np.linalg.norm(vj)
+
+        if norm_vj <= tol:
+            raise ValueError(f"열 {j} 가 앞선 열들에 종속입니다: |v{j}|={norm_vj}")
+
+        Q[:, j] = vj / norm_vj
+
+    return Q
+    # raise NotImplementedError("gram_schmidt 를 구현하세요")       
 
 
 def orthogonality_error(R) -> float:
@@ -126,7 +157,14 @@ def orthogonality_error(R) -> float:
     완전한 직교행렬이면 0 이고, 클수록 직교성이 무너진 것이다.
     """
     # TODO: 문제 3-1
-    raise NotImplementedError("orthogonality_error 를 구현하세요")
+    R = np.asarray(R, dtype=float)
+
+    if R.ndim != 2 or R.shape[0] != R.shape[1]:
+        raise ValueError(f"정사각행렬이 필요합니다: R.shape={R.shape}")
+
+    I = np.eye(R.shape[0])
+    diff = R.T @ R - I
+    return float(np.linalg.norm(diff, ord="fro"))
 
 
 def is_rotation(R, atol: float = 1e-8) -> bool:
@@ -136,7 +174,19 @@ def is_rotation(R, atol: float = 1e-8) -> bool:
     3x3 이 아니면 False.
     """
     # TODO: 문제 3-2
-    raise NotImplementedError("is_rotation 을 구현하세요")
+
+
+    R = np.asarray(R, dtype=float)
+
+    if R.shape != (3, 3):
+        return False
+
+    orthogonality = np.allclose(R.T @ R, np.eye(R.shape[0]), atol=atol)
+    determinant = np.isclose(det(R), 1.0, atol=atol)
+
+    return bool(orthogonality and determinant)
+
+    #raise NotImplementedError("is_rotation 을 구현하세요")
 
 
 # --------------------------------------------------- 회전축·회전각·쿼터니언
