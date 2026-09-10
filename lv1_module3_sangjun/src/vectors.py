@@ -373,7 +373,77 @@ def gauss_eliminate(A, b, pivoting: bool = True, verbose: bool = False):
     피벗이 0 이면 해가 유일하지 않다 -> ZeroDivisionError.
     """
     # TODO: 문제 4-1
-    raise NotImplementedError("gauss_eliminate 을 구현하세요")
+
+    A = np.asarray(A, dtype=float)
+    b = np.asarray(b, dtype=float)
+
+    if A.ndim != 2 or b.ndim != 1:
+        raise ValueError("A는 2차원, b는 1차원이어야 합니다.")
+
+    n = A.shape[0]
+
+    if A.shape[1] != n:
+        raise ValueError("A는 정사각행렬이어야 합니다.")
+
+    if b.shape[0] != n:
+        raise ValueError(
+            f"A와 b의 크기가 맞지 않습니다: A.shape={A.shape}, b.shape={b.shape}"
+        )
+
+    aug = np.hstack([A.copy(), b.reshape(-1, 1)])
+    steps = [aug.copy()]
+
+    if verbose:
+        print("[초기 첨가행렬]")
+        print(aug)
+
+    # 전진 소거
+    for col in range(n - 1):
+        if pivoting:
+            pivot_row = col + np.argmax(np.abs(aug[col:, col]))
+        else:
+            pivot_row = col
+
+        if np.isclose(aug[pivot_row, col], 0.0):
+            raise ZeroDivisionError("피벗이 0이므로 해가 유일하지 않습니다.")
+
+        if pivot_row != col:
+            aug[[col, pivot_row], :] = aug[[pivot_row, col], :]
+            steps.append(aug.copy())
+
+            if verbose:
+                print(f"\n[행 교환: R{col + 1} <-> R{pivot_row + 1}]")
+                print(aug)
+
+        for row in range(col + 1, n):
+            factor = aug[row, col] / aug[col, col]
+
+            if np.isclose(factor, 0.0):
+                continue
+
+            aug[row, col:] -= factor * aug[col, col:]
+            aug[row, col] = 0.0
+            steps.append(aug.copy())
+
+            if verbose:
+                print(f"\n[소거: R{row + 1} <- R{row + 1} - ({factor:.6g})R{col + 1}]")
+                print(aug)
+
+    # 마지막 피벗 확인
+    if np.isclose(aug[-1, -2], 0.0):
+        raise ZeroDivisionError("피벗이 0이므로 해가 유일하지 않습니다.")
+
+    # 후진 대입
+    x = np.zeros(n)
+
+    for row in range(n - 1, -1, -1):
+        x[row] = (
+            aug[row, -1] - aug[row, row + 1:n] @ x[row + 1:n]
+        ) / aug[row, row]
+
+    return x, steps
+
+    # raise NotImplementedError("gauss_eliminate 을 구현하세요")
 
 
 def inverse_gauss_jordan(A) -> np.ndarray:
@@ -383,4 +453,35 @@ def inverse_gauss_jordan(A) -> np.ndarray:
     (`np.linalg.inv` 를 부르지 말고 소거로 직접 구한다)
     """
     # TODO: 문제 4-3
-    raise NotImplementedError("inverse_gauss_jordan 을 구현하세요")
+
+    A = np.asarray(A, dtype=float)
+
+    if A.ndim != 2 or A.shape[0] != A.shape[1]:
+        raise ValueError("A는 정사각행렬이어야 합니다.")
+
+    n = A.shape[0]
+    aug = np.hstack([A.copy(), np.eye(n)])
+
+    # 가우스-조던 소거: [A | I] -> [I | A^-1]
+    for col in range(n):
+        pivot_row = col + np.argmax(np.abs(aug[col:, col]))
+
+        if np.isclose(aug[pivot_row, col], 0.0):
+            raise np.linalg.LinAlgError("특이행렬은 역행렬이 없습니다.")
+
+        if pivot_row != col:
+            aug[[col, pivot_row], :] = aug[[pivot_row, col], :]
+
+        pivot = aug[col, col]
+        aug[col] = aug[col] / pivot
+
+        for row in range(n):
+            if row == col:
+                continue
+
+            factor = aug[row, col]
+            aug[row] = aug[row] - factor * aug[col]
+
+    return aug[:, n:]
+
+    # raise NotImplementedError("inverse_gauss_jordan 을 구현하세요")
