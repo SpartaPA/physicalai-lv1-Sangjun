@@ -31,8 +31,18 @@ def make_T(R, t) -> np.ndarray:
 
     R 이 3x3 이 아니면 ValueError.
     """
-    # TODO: 문제 5-1
-    raise NotImplementedError("make_T 를 구현하세요")
+    R = np.asarray(R, dtype=float)
+    t = np.asarray(t, dtype=float).ravel()
+
+    if R.shape != (3, 3):
+        raise ValueError(f"R 은 3x3 행렬이어야 합니다. 받은 shape={R.shape}")
+    if t.shape != (3,):
+        raise ValueError(f"t 는 3차원 벡터이어야 합니다. 받은 shape={t.shape}")
+
+    T = np.eye(4, dtype=float)
+    T[:3, :3] = R
+    T[:3, 3] = t
+    return T
 
 
 def inv_T(T) -> np.ndarray:
@@ -46,22 +56,37 @@ def inv_T(T) -> np.ndarray:
 
     4x4 가 아니면 ValueError.
     """
-    # TODO: 문제 5-1
-    raise NotImplementedError("inv_T 를 구현하세요")
+    T = np.asarray(T, dtype=float)
+    if T.shape != (4, 4):
+        raise ValueError(f"T 는 4x4 행렬이어야 합니다. 받은 shape={T.shape}")
+
+    R = T[:3, :3]
+    t = T[:3, 3]
+    R_T = R.T
+
+    T_inv = np.eye(4, dtype=float)
+    T_inv[:3, :3] = R_T
+    T_inv[:3, 3] = -R_T @ t
+    return T_inv
 
 
 def inv_T_batch(Ts) -> np.ndarray:
-    """(N, 4, 4) 동차변환 묶음을 **반복문 없이** 한 번에 역변환한다.
+    """(N, 4, 4) 동차변환 묶음을 **반복문 없이** 한 번에 역변환한다."""
+    Ts = np.asarray(Ts, dtype=float)
+    if Ts.ndim != 3 or Ts.shape[1:] != (4, 4):
+        raise ValueError(f"Ts 는 (N, 4, 4) 형상이어야 합니다. 받은 shape={Ts.shape}")
 
-    `inv_T` 와 같은 공식을 배치 축으로 확장한 것이다.
-    문제 5-4 의 속도 비교에서 쓴다 — 단건 호출은 파이썬/NumPy 호출 오버헤드가
-    지배해서 연산량 차이가 드러나지 않기 때문이다.
+    R = Ts[:, :3, :3]
+    t = Ts[:, :3, 3]
+    R_T = np.swapaxes(R, 1, 2)
+    neg_R_T_t = -np.einsum("nij,nj->ni", R_T, t)
 
-    힌트: 전치는 `np.swapaxes(..., 1, 2)`, 배치 행렬-벡터 곱은
-          `np.einsum("nij,nj->ni", ...)` 로 쓸 수 있다.
-    """
-    # TODO: 문제 5-4
-    raise NotImplementedError("inv_T_batch 를 구현하세요")
+    N = Ts.shape[0]
+    Ts_inv = np.zeros((N, 4, 4), dtype=float)
+    Ts_inv[:, :3, :3] = R_T
+    Ts_inv[:, :3, 3] = neg_R_T_t
+    Ts_inv[:, 3, 3] = 1.0
+    return Ts_inv
 
 
 def to_homogeneous(P, w: float = 1.0) -> np.ndarray:
@@ -69,30 +94,47 @@ def to_homogeneous(P, w: float = 1.0) -> np.ndarray:
 
     w = 1 이면 점(위치), w = 0 이면 방향(벡터).
     """
-    # TODO: 문제 5-2
-    raise NotImplementedError("to_homogeneous 를 구현하세요")
+    P = np.asarray(P, dtype=float)
+    if P.ndim == 1:
+        if P.shape[0] != 3:
+            raise ValueError(f"1차원 좌표는 3개 성분이어야 합니다. 받은 shape={P.shape}")
+        return np.array([P[0], P[1], P[2], w], dtype=float)
+    elif P.ndim == 2:
+        if P.shape[1] != 3:
+            raise ValueError(f"2차원 좌표는 (N, 3) 형상이어야 합니다. 받은 shape={P.shape}")
+        w_col = np.full((P.shape[0], 1), w, dtype=float)
+        return np.hstack([P, w_col])
+    else:
+        raise ValueError(f"1차원 또는 2차원 배열이어야 합니다. 받은 ndim={P.ndim}")
 
 
 def transform_point(T, p) -> np.ndarray:
     """점 변환 (w = 1): 회전과 병진이 모두 적용된다. 반환은 (3,)."""
-    # TODO: 문제 5-2
-    raise NotImplementedError("transform_point 를 구현하세요")
+    T = np.asarray(T, dtype=float)
+    p_h = to_homogeneous(p, w=1.0)
+    return (T @ p_h)[:3]
 
 
 def transform_direction(T, v) -> np.ndarray:
     """방향 변환 (w = 0): 회전만 적용되고 병진은 무시된다. 반환은 (3,)."""
-    # TODO: 문제 5-2
-    raise NotImplementedError("transform_direction 을 구현하세요")
+    T = np.asarray(T, dtype=float)
+    v_h = to_homogeneous(v, w=0.0)
+    return (T @ v_h)[:3]
 
 
 def transform_points(T, P, w: float = 1.0) -> np.ndarray:
-    """(N,3) 점군을 **반복문 없이** 한 번에 변환한다. (3,) 입력도 받아야 한다.
-
-    힌트: (T @ P_h.T).T 대신 P_h @ T.T 를 쓰면 전치가 한 번으로 끝나고
-          메모리 접근도 행 방향이라 캐시에 유리하다.
-    """
-    # TODO: 문제 5-2 / 6-2
-    raise NotImplementedError("transform_points 를 구현하세요")
+    """(N,3) 점군을 **반복문 없이** 한 번에 변환한다. (3,) 입력도 받아야 한다."""
+    T = np.asarray(T, dtype=float)
+    P = np.asarray(P, dtype=float)
+    if P.ndim == 1:
+        P_h = to_homogeneous(P, w=w)
+        return (T @ P_h)[:3]
+    elif P.ndim == 2:
+        P_h = to_homogeneous(P, w=w)
+        res_h = P_h @ T.T
+        return res_h[:, :3]
+    else:
+        raise ValueError(f"1차원 또는 2차원 배열이어야 합니다. 받은 ndim={P.ndim}")
 
 
 def least_squares_normal_equation(A, b):
@@ -107,11 +149,20 @@ def least_squares_normal_equation(A, b):
     x : 최소자승해
     residual : b - A x
     """
-    # TODO: 문제 5-5
-    raise NotImplementedError("least_squares_normal_equation 을 구현하세요")
+    A = np.asarray(A, dtype=float)
+    b = np.asarray(b, dtype=float)
+
+    A_T_A = A.T @ A
+    A_T_b = A.T @ b
+
+    inv_A_T_A = inverse_gauss_jordan(A_T_A)
+    x = inv_A_T_A @ A_T_b
+    residual = b - A @ x
+    return x, residual
 
 
 def rmse(residual) -> float:
     """잔차의 RMSE = sqrt(mean(r^2))."""
-    # TODO: 문제 5-5
-    raise NotImplementedError("rmse 를 구현하세요")
+    res = np.asarray(residual, dtype=float)
+    return float(np.sqrt(np.mean(res ** 2)))
+

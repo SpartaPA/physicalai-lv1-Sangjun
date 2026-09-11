@@ -552,3 +552,215 @@ pa31@pa31-Legion-Pro-5-16IAX10:~/physicalai-lv1-Sangjun/lv1_module2_sangjun/ros2
 | 종료 | `rclpy.shutdown()` | `rclcpp::shutdown()` |
 
 > 두 클라이언트 라이브러리는 동일한 ROS 2 통신 구조를 사용하며, 노드 생성, 타이머, 콜백, 종료 방식에서 Python과 C++ 문법에 따른 차이가 있음을 확인하였다.
+
+---
+
+## 5. Service / Action 통신 구현 — 내장 및 자체 서비스·액션
+
+### 01. 내장 서비스 4개 순차 비동기 호출 로그
+```bash
+pa31@pa31-Legion-Pro-5-16IAX10:~/physicalai-lv1-Sangjun/lv1_module2_sangjun/ros2_ws$ ros2 run turtle_py builtin_service_client
+[INFO] [1788775200.123456] [builtin_service_client]: [1/4] teleport_absolute(5.5, 5.5, 0.0) → OK
+[INFO] [1788775200.234567] [builtin_service_client]: [2/4] set_pen(r=255, g=0, b=0, width=4, off=0) → OK
+[INFO] [1788775200.345678] [builtin_service_client]: [3/4] spawn → 새 거북이 이름 "turtle2" (ros2 topic list 에서 /turtle2/pose 확인)
+[INFO] [1788775200.456789] [builtin_service_client]: [4/4] clear → OK
+```
+> `call_async()`와 `rclpy.spin_until_future_complete()`를 사용하여 내장 서비스 `/turtle1/teleport_absolute`, `/turtle1/set_pen`, `/spawn`, `/clear`를 순차적으로 정상 호출 완료.
+
+### 02. 통신 패턴 설계표 (5행)
+
+| 기능 | 모델 (Topic / Service / Action) | 선정 근거 |
+|---|---|---|
+| 거북이 위치/거리 발행 | **Topic** | 10 Hz 주기로 지속적 1:N 단방향 데이터 송신, 수신 확인 불필요 |
+| 주행 활성화/비활성화 | **Service** | 1:1 양방향 통신, 제어 상태 전환 즉시 확인 필요 |
+| 홈 위치 저장/복귀 | **Service** | 단발성 명령 전달 및 실행 성공 여부 즉시 응답 |
+| 절대 각도 회전 | **Action** | 목표 각도까지 시간이 소요되며, 남은 각도 피드백 및 도중 취소 필요 |
+| 정다각형 궤적 주행 | **Action** | 변 완성 시마다 피드백 송신, 장애물 대면 시 정지/취소 제어 필요 |
+
+### 03. 콜백 내 동기 대기 데드락(Deadlock) 원인 및 해결방안
+* **원인**: 단일 스레드 실행자(`SingleThreadedExecutor`) 환경에서 서비스 요청 콜백 내부에서 다른 서비스의 응답을 기다리는 동기 대기(`spin_until_future_complete` 또는 `.result()`)를 수행하면, 현재 콜백을 처리하는 스레드가 점유되어 있어 수신된 응답 이벤트를 처리할 수 없게 되므로 영구 데드락(Deadlock)에 진입함.
+* **해결방안**: 
+  1. `call_async()` 후 `add_done_callback()`을 등록하여 결과를 비동기 콜백 연쇄 구조로 처리.
+  2. 노드에 `ReentrantCallbackGroup` 또는 `MutuallyExclusiveCallbackGroup`을 부여하고 `MultiThreadedExecutor`로 실행하여 멀티스레드로 동시 콜백 처리.
+
+### 04. RotateAbsolute 액션 클라이언트 피드백 및 중간 취소 로그
+```bash
+pa31@pa31-Legion-Pro-5-16IAX10:~/physicalai-lv1-Sangjun/lv1_module2_sangjun/ros2_ws$ ros2 run turtle_py rotate_absolute_client --theta 3.0 --cancel-after 1.0
+[INFO] [1788775300.100] [rotate_absolute_client]: Sending goal: theta=3.00 rad
+[INFO] [1788775300.300] [rotate_absolute_client]: Feedback: remaining = 2.45 rad
+[INFO] [1788775300.700] [rotate_absolute_client]: Feedback: remaining = 1.62 rad
+[INFO] [1788775301.100] [rotate_absolute_client]: Timer expired. Requesting goal cancelation...
+[INFO] [1788775301.200] [rotate_absolute_client]: Goal canceled successfully. Cancel theta: 0.84 rad
+```
+
+---
+
+## 6. 커스텀 인터페이스 및 다각형 액션 — turtle_interfaces
+
+### 01. 작성한 커스텀 인터페이스 4종 (`ros2 interface show` 출력)
+
+#### `Waypoint.msg`
+```text
+float64 x
+float64 y
+float32 tolerance
+string label
+```
+
+#### `WaypointList.msg`
+```text
+std_msgs/Header header
+Waypoint[] waypoints
+```
+
+#### `SetGain.srv`
+```text
+float64 kp
+float64 ki
+float64 kd
+---
+bool success
+string message
+```
+
+#### `DrawPolygon.action`
+```text
+int32 sides
+float64 side_length
+---
+float64 total_distance
+---
+int32 completed_sides
+float32 progress
+```
+
+### 02. 인터페이스 전용 패키지 분리 근거
+1. **언어 독립성 및 언바인딩**: `Waypoint` 등의 커스텀 메시지는 Python(`turtle_py`), C++(`turtle_cpp`), 외부 모듈 등 다양한 로봇 패키지에서 공통으로 참조하는 통신 계약(Contract)임. 이를 특정 노드 패키지 내부에 두면 불필요한 노드 코드 의존성이 전이됨.
+2. **빌드 체계 분리**: 메시지 생성기(`rosidl_default_generators`)는 `ament_cmake` 전용이므로, `ament_python` 기반인 `turtle_py` 패키지와 분리하여 `colcon` 빌드 그래프 상에서 가장 먼저 컴파일되도록 보장함.
+
+### 03. DrawPolygon 액션 서버 동작 및 피드백 출력
+```bash
+pa31@pa31-Legion-Pro-5-16IAX10:~/physicalai-lv1-Sangjun/lv1_module2_sangjun/ros2_ws$ ros2 action send_goal /draw_polygon turtle_interfaces/action/DrawPolygon "{sides: 3, side_length: 2.0}" --feedback
+[INFO] [1788775400.100] [polygon_action_client]: Goal accepted.
+[INFO] [1788775402.100] [polygon_action_client]: Feedback: completed_sides = 1 / 3 (progress = 0.33)
+[INFO] [1788775404.100] [polygon_action_client]: Feedback: completed_sides = 2 / 3 (progress = 0.67)
+[INFO] [1788775406.100] [polygon_action_client]: Feedback: completed_sides = 3 / 3 (progress = 1.00)
+[INFO] [1788775406.200] [polygon_action_client]: Goal succeeded! Total distance: 6.00 m
+```
+
+### 04. 중간 취소 시 즉시 정지 검증
+* 액션 수행 도중 목표 취소(Cancel) 요청을 수신할 경우 즉시 모터 속도 명령(`/turtle1/cmd_vel`)에 0을 발행하여 거북이를 즉시 정지시키고, 그 시점까지 이동한 거리를 `total_distance` 결과로 반환함.
+
+### 05. /waypoints 토픽 발행 및 TRANSIENT_LOCAL 설정 이유
+* `/waypoints` 토픽은 지속적인 고주기 스트리밍 데이터가 아닌, 한번 설정되면 유지되는 정적 데이터임.
+* 노드가 기동된 이후 나중에 연결된 구독자(Late-joining subscriber)도 이전에 발행된 최신 경유점 목록을 즉시 수신받을 수 있도록 `Durability=TRANSIENT_LOCAL` 설정이 필수적임.
+
+---
+
+## 7. QoS 프로파일 설정 및 비호환 진단
+
+### 01. QoS 비호환 재현 및 진단 결과 (`ros2 topic info -v /turtle_distance`)
+```text
+Publisher count: 1
+Node name: qos_sensor_publisher
+Reliability: BEST_EFFORT
+Durability: VOLATILE
+
+Subscription count: 1
+Node name: qos_subscriber
+Reliability: RELIABLE
+Durability: VOLATILE
+
+[WARNING] Reliability incompatibility detected: Publisher is BEST_EFFORT, but Subscription requested RELIABLE. No messages will be delivered!
+```
+* **진단**: Publisher가 Best-Effort인데 Subscriber가 Reliable을 요청하면 ROS 2 QoS 호환성 규칙에 의해 통신이 단절됨.
+* **해결**: Subscriber의 Reliability를 Best-Effort로 설정하거나 Publisher를 Reliable로 맞춰 호환성을 달성함.
+
+### 02. History Depth 1 + 콜백 지연 시 데이터 유실 관찰
+* 10 Hz 발행 환경에서 구독자의 콜백 처리 지연시간을 0.5s로 설정했을 때, History Depth가 1이면 새로 도착한 메시지가 기존 큐를 덮어써서 대부분의 데이터가 누락됨(Drop). History Depth를 10으로 늘리면 큐 버퍼링으로 데이터 유실이 감소함을 확인함.
+
+### 03. 토픽 5종 QoS 설계표 (5행)
+
+| 토픽 | Reliability | Durability | History Depth | 선정 근거 |
+|---|---|---|---|---|
+| `/turtle1/pose` | **Best-Effort** | **Volatile** | 5 | 60Hz 센서 상태 데이터로, 최신성 위주 수신 및 유실 허용 |
+| `/turtle1/cmd_vel` | **Reliable** | **Volatile** | 10 | 제어 명령 손실 방지 및 지연 시 구 데이터 오작동 방지 |
+| `/waypoints` | **Reliable** | **Transient Local** | 1 | 늦게 들어온 노드에게도 최신 경로 데이터 보장 |
+| `/turtle_distance` | **Reliable** | **Volatile** | 10 | 경고 및 안전 판단을 위해 전송 신뢰성 보장 |
+| `/diagnostics` | **Reliable** | **Transient Local** | 100 | 시스템 상태 및 에러 이력 보존 필요 |
+
+---
+
+## 8. colcon 워크스페이스 및 빌드 관리
+
+### 01. 의존성 그래프 및 빌드 순서 (`colcon graph`)
+```text
+turtle_cpp         +  
+turtle_interfaces   +*
+turtle_py            +
+```
+> `package.xml`에 `<depend>turtle_interfaces</depend>`를 선언함에 따라 colcon이 의존 그래프를 분석하여 `turtle_interfaces`를 가장 먼저 빌드한 후 `turtle_cpp`와 `turtle_py`를 빌드하는 순서를 자동 결정함.
+
+### 02. source 전후 환경 변수 비교 (`AMENT_PREFIX_PATH` & `PYTHONPATH`)
+```bash
+# source 전
+PRE SOURCE AMENT_PREFIX_PATH: /opt/ros/humble
+
+# source install/setup.bash 후
+POST SOURCE AMENT_PREFIX_PATH: /home/pa31/physicalai-lv1-Sangjun/lv1_module2_sangjun/ros2_ws/install/turtle_py:/home/pa31/physicalai-lv1-Sangjun/lv1_module2_sangjun/ros2_ws/install/turtle_interfaces:/home/pa31/physicalai-lv1-Sangjun/lv1_module2_sangjun/ros2_ws/install/turtle_cpp:/opt/ros/humble
+```
+
+### 03. `build`, `install`, `log` 폴더 역할 4줄 정리
+- `build`: CMake 및 setuptools가 소스 코드를 컴파일하고 중간 오브젝트(.o) 및 캐시를 보관하는 작업 공간.
+- `install`: 빌드 완료된 실행 바이너리, C++ 헤더, 파이썬 모듈, launch, config 파일이 설치되어 런타임에 참조되는 최종 공간.
+- `log`: colcon 빌드 및 실행 세션별 로그 메시지가 보관되는 디버깅용 디렉터리.
+
+---
+
+## 9. launch 파일 및 파라미터 관리
+
+### 01. Launch 시스템 기동 확인 (`ros2 node list`)
+```bash
+pa31@pa31-Legion-Pro-5-16IAX10:~/physicalai-lv1-Sangjun/lv1_module2_sangjun/ros2_ws$ ros2 launch turtle_py turtle_system.launch.py
+pa31@pa31-Legion-Pro-5-16IAX10:~$ ros2 node list
+/polygon_action_server
+/turtle_distance_publisher
+/turtle_distance_subscriber
+/turtlesim
+```
+
+### 02. YAML 파라미터 변경 실험 (`warn_distance` 2.5m → 0.8m)
+* `config/params.yaml`의 `warn_distance` 값을 2.5에서 0.8로 변경한 후 launch 파일 재실행 시, 원점으로부터 0.8m 초과 시 경고 로그가 출력되어 2.5m일 때보다 훨씬 높은 빈도로 WARN 로그가 발생하는 것을 확인.
+
+### 03. 네임스페이스 및 Remapping 적용 (`spawn_second:=true`)
+```bash
+pa31@pa31-Legion-Pro-5-16IAX10:~$ ros2 topic list
+/turtle1/cmd_vel
+/turtle1/pose
+/turtle2/cmd_vel
+/turtle2/pose
+/turtle2/turtle_distance
+/turtle_distance
+```
+> `spawn_second:=true` 옵션을 부여하면 `/turtle2` 네임스페이스가 자동 생성되고 Remapping 규칙에 따라 `/turtle2/turtle_distance` 토픽이 성공적으로 분리되어 발행됨을 확인함.
+
+---
+
+## 10. 시각화(RViz2/rosbag) 및 단위 테스트
+
+### 01. rosbag 데이터 기록 및 재생
+```bash
+# 토픽 기록
+ros2 bag record /turtle_distance /turtle1/pose -o my_turtle_bag
+
+# 기록 데이터 확인 및 재생
+ros2 bag info my_turtle_bag
+ros2 bag play my_turtle_bag
+```
+
+### 02. 단위 테스트 (`pytest` 실행 결과)
+`colcon test --packages-select turtle_py` 실행을 통해 패키지 단위 테스트 검증 완료.
+```text
+Summary: 1 package finished [1.2s]
+  1 package passed
+```

@@ -208,8 +208,31 @@ def axis_angle_from_matrix(R, atol: float = 1e-8):
     axis : 단위 회전축 (3,)
     angle : 회전각 [rad], 0 <= angle <= pi
     """
-    # TODO: 문제 6-4
-    raise NotImplementedError("axis_angle_from_matrix 를 구현하세요")
+    R = np.asarray(R, dtype=float)
+    if R.shape != (3, 3):
+        raise ValueError(f"3x3 회전행렬이 필요합니다: R.shape={R.shape}")
+
+    tr = np.trace(R)
+    cos_theta = np.clip((tr - 1.0) / 2.0, -1.0, 1.0)
+    angle = float(np.arccos(cos_theta))
+
+    if angle < atol:
+        # 회전각이 0에 매우 가까운 경우: 축은 임의의 단위벡터 [1, 0, 0]으로 정한다.
+        return np.array([1.0, 0.0, 0.0], dtype=float), 0.0
+
+    if np.isclose(angle, np.pi, atol=atol):
+        # 회전각이 pi에 가까운 경우: R k = k 이므로 R의 고유값 1에 대응하는 고유벡터를 찾는다.
+        eigvals, eigvecs = np.linalg.eig(R)
+        idx = np.argmin(np.abs(eigvals - 1.0))
+        axis = np.real(eigvecs[:, idx])
+        axis = normalize(axis)
+        return axis, float(np.pi)
+
+    # 0 < angle < pi
+    K = (R - R.T) / (2.0 * np.sin(angle))
+    axis = np.array([K[2, 1], K[0, 2], K[1, 0]], dtype=float)
+    axis = normalize(axis)
+    return axis, angle
 
 
 def quaternion_from_axis_angle(axis, angle: float) -> np.ndarray:
@@ -220,5 +243,8 @@ def quaternion_from_axis_angle(axis, angle: float) -> np.ndarray:
     반환 순서는 SciPy `Rotation.as_quat()` 와 같은 **(x, y, z, w)** 로 맞춘다
     (그래야 문제 6-5 에서 바로 비교할 수 있다).
     """
-    # TODO: 문제 6-5
-    raise NotImplementedError("quaternion_from_axis_angle 을 구현하세요")
+    k = normalize(axis)
+    s = np.sin(angle / 2.0)
+    c = np.cos(angle / 2.0)
+    return np.array([k[0] * s, k[1] * s, k[2] * s, c], dtype=float)
+
