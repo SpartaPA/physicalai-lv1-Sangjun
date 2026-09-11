@@ -26,7 +26,16 @@ def linear_interp(t_wp, q_wp, t) -> np.ndarray:
     위치는 이어지지만 경유점에서 속도가 불연속(꺾임)이다.
     """
     # TODO: 문제 4-1
-    raise NotImplementedError("linear_interp 를 구현하세요")
+    t_wp = np.asarray(t_wp, dtype=float)
+    q_wp = np.asarray(q_wp, dtype=float)
+    t = np.asarray(t, dtype=float)
+    if t_wp.ndim != 1 or q_wp.ndim not in (1, 2) or q_wp.shape[0] != t_wp.size:
+        raise ValueError("t_wp 는 (M,), q_wp 는 (M,) 또는 (M, D)여야 합니다.")
+    if np.any(np.diff(t_wp) <= 0.0):
+        raise ValueError("t_wp 는 엄격히 오름차순이어야 합니다.")
+    if q_wp.ndim == 1:
+        return np.interp(t, t_wp, q_wp)
+    return np.column_stack([np.interp(t, t_wp, q_wp[:, i]) for i in range(q_wp.shape[1])])
 
 
 def cubic_spline_interp(t_wp, q_wp, t, bc_type: str = "natural") -> np.ndarray:
@@ -35,7 +44,15 @@ def cubic_spline_interp(t_wp, q_wp, t, bc_type: str = "natural") -> np.ndarray:
     bc_type : 양끝 경계 조건. "natural" (양끝 가속도 0) 또는 "clamped" (양끝 속도 0).
     """
     # TODO: 문제 4-1
-    raise NotImplementedError("cubic_spline_interp 를 구현하세요")
+    from scipy.interpolate import CubicSpline
+    t_wp = np.asarray(t_wp, dtype=float)
+    q_wp = np.asarray(q_wp, dtype=float)
+    t = np.asarray(t, dtype=float)
+    if t_wp.ndim != 1 or q_wp.ndim not in (1, 2) or q_wp.shape[0] != t_wp.size:
+        raise ValueError("t_wp 는 (M,), q_wp 는 (M,) 또는 (M, D)여야 합니다.")
+    if np.any(np.diff(t_wp) <= 0.0):
+        raise ValueError("t_wp 는 엄격히 오름차순이어야 합니다.")
+    return CubicSpline(t_wp, q_wp, axis=0, bc_type=bc_type)(t)
 
 
 def quintic_profile(t, t0: float, tf: float, q0, qf,
@@ -57,7 +74,30 @@ def quintic_profile(t, t0: float, tf: float, q0, qf,
     q, qd, qdd : 위치, 속도, 가속도 (해석적 미분. 유한차분이 아니다)
     """
     # TODO: 문제 4-4
-    raise NotImplementedError("quintic_profile 을 구현하세요")
+    t = np.asarray(t, dtype=float)
+    if tf <= t0:
+        raise ValueError("tf 는 t0 보다 커야 합니다.")
+    q0, qf = np.asarray(q0, dtype=float), np.asarray(qf, dtype=float)
+    if q0.shape != qf.shape:
+        raise ValueError("q0 와 qf 의 shape 이 같아야 합니다.")
+    shape = q0.shape
+    v0, vf = np.broadcast_to(v0, shape), np.broadcast_to(vf, shape)
+    a0, af = np.broadcast_to(a0, shape), np.broadcast_to(af, shape)
+    duration = tf - t0
+    # q = c0 + c1*s + ... where s = t - t0; solve per coordinate at s=duration.
+    c0, c1, c2 = q0, v0, a0 / 2.0
+    rhs = np.stack((qf - c0 - c1*duration - c2*duration**2,
+                    vf - c1 - 2*c2*duration,
+                    af - 2*c2), axis=0)
+    A = np.array([[duration**3, duration**4, duration**5],
+                  [3*duration**2, 4*duration**3, 5*duration**4],
+                  [6*duration, 12*duration**2, 20*duration**3]])
+    c3, c4, c5 = np.linalg.solve(A, rhs.reshape(3, -1)).reshape((3,) + shape)
+    s = (t - t0).reshape((t.size,) + (1,) * q0.ndim)
+    q = c0 + c1*s + c2*s**2 + c3*s**3 + c4*s**4 + c5*s**5
+    qd = c1 + 2*c2*s + 3*c3*s**2 + 4*c4*s**3 + 5*c5*s**4
+    qdd = 2*c2 + 6*c3*s + 12*c4*s**2 + 20*c5*s**3
+    return q, qd, qdd
 
 
 def finite_diff(y, t) -> np.ndarray:
@@ -67,4 +107,4 @@ def finite_diff(y, t) -> np.ndarray:
     속도 = finite_diff(q, t),  가속도 = finite_diff(속도, t)
     """
     # TODO: 문제 4-2
-    raise NotImplementedError("finite_diff 를 구현하세요")
+    return np.gradient(np.asarray(y, dtype=float), np.asarray(t, dtype=float), axis=0)
